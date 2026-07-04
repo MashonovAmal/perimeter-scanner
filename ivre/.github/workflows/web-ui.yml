@@ -1,0 +1,188 @@
+# This file is part of IVRE.
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+# Lints, type-checks, unit-tests, builds, and runs the Playwright
+# smoke test against the React workspace under web-ui/. Independent
+# from the Python CI matrix.
+
+name: Web UI
+
+on:
+  push:
+    paths:
+      - "web-ui/**"
+      - ".github/workflows/web-ui.yml"
+  pull_request:
+    paths:
+      - "web-ui/**"
+      - ".github/workflows/web-ui.yml"
+
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !contains(github.ref, 'master') }}
+
+defaults:
+  run:
+    working-directory: web-ui
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Use Node (from web-ui/.nvmrc)
+        # Single pinned version for lint / typecheck / test /
+        # build / e2e so the bundle bytes match what ``regen.yml``
+        # re-derives on every push. The canonical version lives
+        # in ``web-ui/.nvmrc`` and ``web-ui/package.json``'s
+        # ``engines`` field.
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: web-ui/.nvmrc
+          cache: pnpm
+          cache-dependency-path: web-ui/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type-check
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Verify the bundle is self-contained
+        # The deployed bundle under web/static/ui/ must make no
+        # external HTTP requests at runtime. This step greps the
+        # built dist/ tree (excluding source maps, which contain
+        # build-time references that are not fetched by the runtime)
+        # and fails if any URL outside the allowed set appears.
+        #
+        # Allowed (all are passive string literals — namespace URIs,
+        # license attributions, or error-/doc-reference URLs in
+        # console output, never reached over the network):
+        #
+        #   XML / SVG / RDF namespaces:
+        #     - www.w3.org/...         XML, SVG, XHTML
+        #     - purl.org/dc/...        Dublin Core (in world-map.svg)
+        #     - web.resource.org/cc/   Creative Commons RDF
+        #     - sodipodi.sourceforge.net/    Inkscape SVG metadata
+        #     - inkscape.org/namespaces/     Inkscape SVG metadata
+        #
+        #   Library license / attribution / error references:
+        #     - react.dev/errors/      React minified error lookup
+        #     - tailwindcss.com        Tailwind CSS license header
+        #     - radix-ui.com/...       Radix primitive doc URLs
+        #     - reactrouter.com/...    react-router doc URLs
+        #     - github.com/ungap/...   url-search-params polyfill comment
+        #     - github.com/remarkjs/...      react-markdown / remark-gfm
+        #                                    changelog + doc references
+        #                                    in their error / source
+        #                                    strings
+        #     - github.com/syntax-tree/...   transitive markdown deps
+        #                                    (hast-util-* / mdast-util-*)
+        #                                    source-link references
+        #     - www.ibm.com/data/dtd/...     XHTML DTD reference embedded
+        #                                    by parse5 / @wooorm/starry-night
+        #                                    (markdown code-highlighter
+        #                                    transitive dep) in its
+        #                                    namespace tables
+        #     - html.spec.whatwg.org/...     parse-error spec links
+        #                                    embedded in parse5's error
+        #                                    message strings
+        #     - www.markdownguide.org/...    syntax-help link from the
+        #                                    @uiw/react-md-editor toolbar
+        #                                    tooltips
+        #     - en.wikipedia.org/wiki/MIT_License        \
+        #     - opensource.org/licenses/MIT              | license-link
+        #     - tldrlegal.com/license/mit-license        | comment lines
+        #     - jquery.org/license/                      | (cytoscape's
+        #     - github.com/jquery/jquery/...             | bundled
+        #     - engelschall.com                          / event subset)
+        #
+        #   Dev-only:
+        #     - localhost*             dev server / proxy targets
+        run: |
+          set -e
+          found=$(find dist/ -type f -not -name '*.map' -print0 \
+              | xargs -0 grep -hoE 'https?://[A-Za-z0-9._/?=&%~+:#@-]+' 2>/dev/null \
+              | grep -vE '^https?://www\.w3\.org/' \
+              | grep -vE '^https?://purl\.org/dc/' \
+              | grep -vE '^https?://web\.resource\.org/cc/' \
+              | grep -vE '^https?://sodipodi\.sourceforge\.net/' \
+              | grep -vE '^https?://(www\.)?inkscape\.org/namespaces/' \
+              | grep -vE '^https?://localhost([:/]|$)' \
+              | grep -vE '^https?://react\.dev/errors/' \
+              | grep -vE '^https?://tailwindcss\.com($|/| )' \
+              | grep -vE '^https?://radix-ui\.com/' \
+              | grep -vE '^https?://reactrouter\.com/' \
+              | grep -vE '^https?://github\.com/ungap/' \
+              | grep -vE '^https?://github\.com/remarkjs/' \
+              | grep -vE '^https?://github\.com/syntax-tree/' \
+              | grep -vE '^https?://www\.ibm\.com/data/dtd/' \
+              | grep -vE '^https?://html\.spec\.whatwg\.org/' \
+              | grep -vE '^https?://www\.markdownguide\.org/' \
+              | grep -vE '^https?://en\.wikipedia\.org/wiki/MIT_License$' \
+              | grep -vE '^https?://opensource\.org/licenses/MIT$' \
+              | grep -vE '^https?://tldrlegal\.com/license/mit-license$' \
+              | grep -vE '^https?://jquery\.org/license/?$' \
+              | grep -vE '^https?://github\.com/jquery/jquery/' \
+              | grep -vE '^https?://engelschall\.com/?$' \
+              | sort -u || true)
+          if [ -n "$found" ]; then
+              echo "External URLs leaked into the bundle:" >&2
+              echo "$found" >&2
+              exit 1
+          fi
+          echo "Bundle is self-contained."
+
+      - name: Install Playwright system dependencies
+        # The e2e suite runs against the runner's preinstalled Google
+        # Chrome (channel: "chrome" in playwright.config.ts), so there
+        # is no browser download from cdn.playwright.dev -- that step
+        # repeatedly hung *after* reaching 100% (the CDN connection was
+        # never torn down), pinning the job until its timeout. Only the
+        # OS libraries are installed here, via apt, which is reliable;
+        # cap it anyway so a hung apt mirror fails fast.
+        timeout-minutes: 5
+        run: pnpm exec playwright install-deps chromium
+
+      - name: End-to-end smoke test
+        run: pnpm test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web-ui/playwright-report/
+          retention-days: 7

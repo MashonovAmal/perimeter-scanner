@@ -1,0 +1,48 @@
+<!--
+  This file is part of IVRE.
+  Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+
+  IVRE is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  IVRE is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<ul class="nav">
+  <form class="form-group" ng-submit="on_submit()">
+    <li class="sidebox-header">
+      <i class="glyphicon glyphicon-filter"></i>
+      <label>{{title}}</label>
+    </li>
+    <li class="filter-list" 
+        ng-repeat="flt in filters track by $index">
+      <div class="input-group">
+        <input placeholder="New Filter..."
+               ng-model="filters[$index]"
+               class="form-control input-medium"/>
+        <span class="input-group-addon clickable"
+              ng-click="remove($index); on_submit()">
+          <i class="glyphicon glyphicon-remove"></i></span>
+      </div>
+    </li>
+    <li class="filter-list">
+      <div class="input-group">
+        <input placeholder="New Filter..."
+               ng-model="new_filter"
+               class="form-control input-medium"/>
+        <span class="input-group-addon clickable">
+          <i class="glyphicon glyphicon-remove"></i></span>
+      </div>
+    </li>
+    <input type="submit" tabindex="-1"
+           style="position: absolute; left: -1000px; width: 1px; height: 1px;"/>
+  </form>
+</ul>

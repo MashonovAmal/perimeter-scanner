@@ -1,0 +1,14 @@
+*.py[cod]
+.*.swp
+*~
+build/
+dist/
+doc/_build
+docker/base-local/ivre.tar
+ivre/_version.py
+ivre.egg-info/
+tests/samples*
+tests/htmlcov*
+tests/.coverage
+web/static/doc/.buildinfo
+web/static/doc/objects.inv

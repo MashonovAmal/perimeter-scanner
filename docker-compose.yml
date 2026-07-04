@@ -1,0 +1,22 @@
+services:
+  scanner:
+    build: .
+    container_name: perimeter-scanner
+    environment:
+      - NETBOX_URL=${NETBOX_URL:-http://netbox:8000}
+      - NETBOX_TOKEN=${NETBOX_TOKEN:-token}
+      - SMTP_SERVER=${SMTP_SERVER:-smtp.example.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-user@example.com}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-password}
+      - SMTP_FROM=${SMTP_FROM:-scanner@example.com}
+      - SMTP_TO=${SMTP_TO:-admin@example.com}
+    volumes:
+      - ./share:/opt/ivre/ivre-share
+      - ./opt:/opt/ivre/ivre-opt
+    networks:
+      - shared-network
+
+networks:
+  shared-network:
+    external: true

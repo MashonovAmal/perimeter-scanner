@@ -1,0 +1,24 @@
+# Временные файлы Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Файлы с данными
+share/
+*.xml
+*.json
+*.txt
+.env
+
+# Базы данных
+var_lib_mongodb/
+ivre-share/
+dokuwiki_data/
+
+# IDE
+.vscode/
+.idea/
+
+# Системные
+.DS_Store
+Thumbs.db
