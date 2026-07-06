@@ -119,3 +119,9 @@ Email не отправляется:
 Проверьте завершение импорта: docker logs ivreclient
 
 Пересоберите представление IVRE: docker exec -it ivreclient ivre db2view nmap
+
+## Usage
+
+```bash
+python3 main.py
+```
